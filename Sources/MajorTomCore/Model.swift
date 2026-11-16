@@ -29,10 +29,11 @@ public enum Tier: String, Codable, Sendable, CaseIterable, Comparable {
 }
 
 public enum RuleCategory: String, Codable, Sendable, CaseIterable {
-    case xcode, android, javascript, packageManagers, ides, containers, system, projects, files
+    case media, xcode, android, javascript, packageManagers, ides, containers, system, projects, files
 
     public var title: String {
         switch self {
+        case .media: "Photo & video apps"
         case .xcode: "Xcode & Simulators"
         case .android: "Android"
         case .javascript: "JavaScript"
@@ -286,7 +287,7 @@ public struct RuleResult: Sendable, Codable, Identifiable {
         self.deniedPaths = deniedPaths
     }
 
-    /// Bytes across items Major Tom can actually clean (not protected, not report-only).
+    /// Bytes across items Prune can actually clean (not protected, not report-only).
     public var reclaimableSize: Int64 {
         items.filter(\.isCleanable).reduce(0) { $0 + ($1.size ?? 0) }
     }

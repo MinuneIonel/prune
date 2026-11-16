@@ -8,7 +8,41 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            Section("Reclaimable") {
+            Section("Space") {
+                Label {
+                    HStack {
+                        Text("Map")
+                        Spacer()
+                        if model.atlas.isScanning {
+                            ProgressView().controlSize(.mini)
+                        } else if let map = model.atlas.map {
+                            Text(ByteFormat.string(map.root.size)).monospacedDigit().foregroundStyle(.secondary)
+                        }
+                    }
+                } icon: {
+                    Image(systemName: "circle.hexagongrid")
+                }
+                .tag(SidebarSelection.map)
+                Label {
+                    HStack {
+                        Text("Linked Folders")
+                        Spacer()
+                        if model.links.isComparing {
+                            ProgressView().controlSize(.mini)
+                        } else if model.links.pendingBytes > 0 {
+                            Text(ByteFormat.string(model.links.pendingBytes)).monospacedDigit().foregroundStyle(.orange)
+                                .help("Not on the backup yet")
+                        } else if model.links.offloadableBytes > 0 {
+                            Text(ByteFormat.string(model.links.offloadableBytes)).monospacedDigit().foregroundStyle(.secondary)
+                                .help("Backed up and untouched: could leave this Mac")
+                        }
+                    }
+                } icon: {
+                    Image(systemName: "link")
+                }
+                .tag(SidebarSelection.links)
+            }
+            Section("Clean Up") {
                 row("Everything", systemImage: "square.stack.3d.up", bytes: model.reclaimable(category: nil))
                     .tag(SidebarSelection.all)
                 ForEach(model.categories, id: \.self) { category in
@@ -36,7 +70,7 @@ struct SidebarView: View {
                 }
                 .tag(SidebarSelection.projects)
             }
-            Section("NAS") {
+            Section("Archive to External Drive") {
                 Label {
                     HStack {
                         Text("Offload")
@@ -50,15 +84,15 @@ struct SidebarView: View {
                         }
                     }
                 } icon: {
-                    Image(systemName: model.destinationCheck.isReady ? "externaldrive.connected.to.line.below" : "externaldrive.badge.xmark")
+                    Image(systemName: model.destinationCheck.isReady ? "externaldrive" : "externaldrive.badge.xmark")
                 }
-                .help(model.destinationCheck.isReady ? "Copy to the NAS, verify, then move to the Trash" : model.destinationCheck.message)
+                .help(model.destinationCheck.isReady ? "Copy to the external drive, verify, then move to the Trash" : model.destinationCheck.message)
                 .tag(SidebarSelection.offload)
                 Label("Offloaded", systemImage: "shippingbox.and.arrow.backward")
                     .badge(model.offloadRecords.isEmpty ? nil : Text("\(model.offloadRecords.count)"))
                     .tag(SidebarSelection.offloaded)
             }
-            Section("Ground Control") {
+            Section("Log") {
                 Label("History", systemImage: "clock.arrow.circlepath")
                     .badge(model.history.isEmpty ? nil : Text("\(model.history.count)"))
                     .tag(SidebarSelection.history)
@@ -89,6 +123,7 @@ struct SidebarView: View {
 extension RuleCategory {
     var symbol: String {
         switch self {
+        case .media: "camera.aperture"
         case .xcode: "hammer"
         case .android: "smartphone"
         case .javascript: "curlybraces"

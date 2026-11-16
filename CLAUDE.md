@@ -1,4 +1,19 @@
-# Major Tom — notes for working on this repo
+# Prune — notes for working on this repo
+
+Fork of Major Tom (below) for photo/video/code work. Added on top, same safety rules:
+- `Sources/MajorTomCore/Atlas/` — `FileClassifier` (kind + origin from names, locations, download xattrs) and
+  `SpaceMapScanner` (one read-only walk -> `SpaceMap`). UI: `MapView.swift` (Canvas sunburst), model `AtlasModel`.
+- `Sources/MajorTomCore/Links/` — `FolderLink`, `LinkScanner` (compare, per top-level item), `LinkEngine`
+  (back up / offload / bring back; dry run unless `execute`), `LinkStore`. UI: `LinksView.swift`, model `LinksModel`.
+  Offload only trashes an item after every file matched its backup copy; never deletes or overwrites newer on the backup.
+- `Rules/MediaRules.swift` — category `.media` (Resolve, Adobe, Capture One caches).
+- Build with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` when xcode-select points at the Command
+  Line Tools (SwiftUI macros are missing there). App bundle is `build/Prune.app`; `--sidebar map|links|clean`.
+- `@State var x = switch …` doesn't compile with Swift 6.4's macro; use a function.
+- In `MAJORTOM_SNAPSHOT_LAYER=1` snapshots, `.glassProminent` buttons inside content blank the area above a List.
+
+Everything below is Major Tom's original notes.
+
 
 Personal macOS 26 disk cleaner for developers (SwiftUI app + menu bar + `majortom` CLI). Finds dev-tool caches,
 explains what deleting each costs, removes only what the user confirms; also hibernates stale projects, lists

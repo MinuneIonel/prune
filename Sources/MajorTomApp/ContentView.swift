@@ -3,6 +3,8 @@ import MajorTomCore
 import SwiftUI
 
 enum SidebarSelection: Hashable {
+    case map
+    case links
     case all
     case category(RuleCategory)
     case projects
@@ -15,15 +17,31 @@ struct ContentView: View {
     @Environment(GroundControlModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openSettings) private var openSettings
-    @State private var sidebar: SidebarSelection? = switch Snapshotter.argument("--sidebar") {
-    case "history": .history
-    case "projects": .projects
-    case "files": .category(.files)
-    case "offload": .offload
-    case "offloaded": .offloaded
-    default: .all
+    @State private var sidebar: SidebarSelection? = ContentView.initialSidebar()
+
+    /// A function, not an inline `switch`: the `@State` macro (Swift 6.4) rejects a switch expression initialiser.
+    static func initialSidebar() -> SidebarSelection {
+        switch Snapshotter.argument("--sidebar") {
+        case "history": return .history
+        case "projects": return .projects
+        case "files": return .category(.files)
+        case "offload": return .offload
+        case "offloaded": return .offloaded
+        case "map": return .map
+        case "links": return .links
+        case "clean": return .all
+        default: return .map
+        }
     }
     @State private var selectedRuleID: String?
+
+    /// The reclaimable-by-tier gauge belongs to the clean-up screens; the map and links have their own headers.
+    private var showsCleanHeader: Bool {
+        switch sidebar ?? .map {
+        case .map, .links: false
+        default: true
+        }
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -33,9 +51,15 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 if model.environment.isFixture { FixtureBanner() }
                 if model.fullDiskAccess == .denied { FullDiskAccessBanner() }
-                DiskGaugeHeader()
-                Divider()
-                switch sidebar ?? .all {
+                if showsCleanHeader {
+                    DiskGaugeHeader()
+                    Divider()
+                }
+                switch sidebar ?? .map {
+                case .map:
+                    MapView()
+                case .links:
+                    LinksView()
                 case .history:
                     HistoryView()
                 case .projects:
@@ -145,8 +169,8 @@ struct FullDiskAccessBanner: View {
             Image(systemName: "lock.trianglebadge.exclamationmark")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Major Tom doesn't have Full Disk Access").fontWeight(.semibold)
-                Text("The Trash and some app caches can't be measured until you allow it. Add Major Tom, then come back.")
+                Text("Prune doesn't have Full Disk Access").fontWeight(.semibold)
+                Text("The Trash and some app caches can't be measured until you allow it. Add Prune, then come back.")
                     .foregroundStyle(.secondary)
             }
             Spacer()

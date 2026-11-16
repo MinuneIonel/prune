@@ -11,7 +11,7 @@ struct MenuBarLabel: View {
 
     var body: some View {
         Image(nsImage: MenuBarIcon.image(lowSpace: watch.isBelowThreshold))
-            .accessibilityLabel(watch.isBelowThreshold ? "Major Tom — low disk space" : "Major Tom")
+            .accessibilityLabel(watch.isBelowThreshold ? "Prune — low disk space" : "Prune")
             .onAppear {
                 AppServices.shared.openWindow = openWindow
                 AppServices.shared.ensureMainWindowAtLaunch()
@@ -187,7 +187,7 @@ struct MenuBarView: View {
                 dismiss()
                 AppServices.shared.showMainWindow()
             } label: {
-                Text("Open Major Tom")
+                Text("Open Prune")
                     .frame(maxWidth: .infinity)
             }
         }

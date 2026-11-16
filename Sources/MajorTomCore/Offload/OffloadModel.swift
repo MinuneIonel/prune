@@ -16,12 +16,12 @@ public enum OffloadError: Error, Sendable, Equatable, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .notMounted(let s): "the NAS share isn't mounted: \(s)"
-        case .notNetworkVolume(let s): "not a mounted network share: \(s)"
+        case .notMounted(let s): "the external drive isn't connected: \(s)"
+        case .notNetworkVolume(let s): "not on an external drive or network share: \(s)"
         case .destinationUnavailable(let s): "destination unavailable: \(s)"
         case .insufficientSpace(let needed, let available):
             "not enough space: needs \(ByteFormat.string(needed)), \(ByteFormat.string(available)) free"
-        case .shareChanged(let s): "the NAS share went away during the copy: \(s)"
+        case .shareChanged(let s): "the external drive went away during the copy: \(s)"
         case .io(let s): s
         case .verification(let s): "verification failed: \(s)"
         case .sourceChanged(let s): "the original changed while it was being copied (\(s)); it was left in place"
@@ -110,7 +110,7 @@ public struct OffloadManifest: Codable, Sendable, Identifiable {
     public var skipped: [String]
     /// Extended attributes of a `.file` payload (a tar carries its own).
     public var fileXattrs: [String: Data]?
-    /// How to get it back without Major Tom.
+    /// How to get it back without Prune.
     public var restoreCommand: String
     /// E.g. a hibernated project's reinstall commands.
     public var notes: [String]

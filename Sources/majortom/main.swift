@@ -13,6 +13,8 @@ USAGE
   majortom history [--json]
   majortom projects [--stale] [--dirs] [--json]
   majortom offload [--candidates] [--json]
+  majortom map [--path <folder>]
+  majortom compare --from <folder> --to <backup folder>
 
 clean is a DRY RUN unless --execute is given. Without --item, every cleanable
 item of the rule is selected (protected and report-only items are never touched).
@@ -26,6 +28,10 @@ has been offloaded (with each archive's restore command). --candidates also list
 what could be offloaded (stale projects, Xcode Archives, large cold files) with
 sizes. It never copies, moves or deletes anything; offloading and restoring are
 done from the app.
+
+map walks a folder (default: home) and prints what takes the space, by kind and
+by where it came from. compare shows which top-level items of a folder are on its
+backup. Both only read.
 
 --large-mb / --old-days / --old-min-mb override the Files thresholds from Settings
 for this run only (they are not saved).
@@ -41,7 +47,8 @@ struct Args {
         guard let cmd = rest.first else { throw CLIError(usage) }
         command = cmd
         rest = rest.dropFirst()
-        let valued: Set<String> = ["--rule", "--item", "--action", "--large-mb", "--old-days", "--old-min-mb"]
+        let valued: Set<String> = ["--rule", "--item", "--action", "--large-mb", "--old-days", "--old-min-mb", "--path",
+                                   "--from", "--to"]
         while let a = rest.first {
             rest = rest.dropFirst()
             if valued.contains(a) {
@@ -376,7 +383,7 @@ func offloadCommand(_ args: Args) async throws {
                                   candidateBytes: candidates.map { $0.reduce(0) { $0 + ($1.size ?? 0) } }))
         return
     }
-    print("Destination: \(engine.destination?.path ?? "not set (choose a NAS folder in the app's Settings → NAS)")")
+    print("Destination: \(engine.destination?.path ?? "not set (choose a folder in the app's Settings → External)")")
     print("  \(check.isReady ? "ready" : "NOT READY"): \(check.message)")
     for p in partials { print("  incomplete copy: \(p)") }
     print("\nOffloaded (\(records.count)):")
@@ -417,10 +424,53 @@ do {
     case "history": try historyCommand(args)
     case "projects": try await projectsCommand(args)
     case "offload": try await offloadCommand(args)
+    case "map": mapCommand(args)
+    case "compare": compareCommand(args)
     case "help", "--help", "-h": print(usage)
     default: throw CLIError("unknown command: \(args.command)\n\n\(usage)")
     }
 } catch let e as CLIError {
     FileHandle.standardError.write(Data((e.message + "\n").utf8))
     exit(2)
+}
+
+
+func mapCommand(_ args: Args) {
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    let root = args.values["--path"]?.first.map { URL(filePath: ($0 as NSString).expandingTildeInPath) } ?? home
+    guard let map = SpaceMapScanner(root: root, home: home).scan() else {
+        print("Not a readable folder: \(root.path)")
+        return
+    }
+    print("\(root.path): \(ByteFormat.string(map.root.size)) in \(map.fileCount) files, "
+        + String(format: "%.1f s", map.duration) + (map.unreadableFolders > 0 ? ", \(map.unreadableFolders) folders unreadable" : ""))
+    print("\nBy kind")
+    for kind in FileKind.allCases.sorted(by: { map.root.bytes(of: $0) > map.root.bytes(of: $1) }) where map.root.bytes(of: kind) > 0 {
+        print("  \(kind.title.padding(toLength: 24, withPad: " ", startingAt: 0)) \(ByteFormat.string(map.root.bytes(of: kind)))")
+    }
+    print("\nWhere it comes from")
+    for o in map.origins.prefix(25) {
+        print("  \(o.origin.name.padding(toLength: 28, withPad: " ", startingAt: 0)) \(ByteFormat.string(o.bytes).padding(toLength: 10, withPad: " ", startingAt: 0)) \(o.fileCount) files")
+    }
+    print("\nBiggest folders")
+    for child in map.root.children.prefix(12) {
+        print("  \(child.name.padding(toLength: 28, withPad: " ", startingAt: 0)) \(ByteFormat.string(child.size).padding(toLength: 10, withPad: " ", startingAt: 0)) \(child.kind.title)\(child.origin.map { " · " + $0.name } ?? "")")
+    }
+}
+
+func compareCommand(_ args: Args) {
+    guard let from = args.values["--from"]?.first, let to = args.values["--to"]?.first else {
+        print("compare needs --from <folder> and --to <backup folder>")
+        return
+    }
+    let link = FolderLink(name: "compare", source: (from as NSString).expandingTildeInPath,
+                          destination: (to as NSString).expandingTildeInPath)
+    let report = LinkScanner.report(link)
+    if !report.destinationConnected { print("The backup drive isn't connected: only the local side is shown.") }
+    for e in report.entries {
+        let days = e.daysUntouched().map { "\($0) d" } ?? "—"
+        print("  \(e.state.rawValue.padding(toLength: 12, withPad: " ", startingAt: 0)) \(ByteFormat.string(e.localBytes).padding(toLength: 10, withPad: " ", startingAt: 0)) \(days.padding(toLength: 7, withPad: " ", startingAt: 0)) \(e.name)"
+            + (e.isOffloadCandidate(afterDays: link.offloadAfterDays) ? "   ← could be offloaded" : ""))
+    }
+    print("\(ByteFormat.string(report.backedUpBytes)) backed up, \(ByteFormat.string(report.pendingBytes)) not yet (\(report.pendingCount) files)")
 }

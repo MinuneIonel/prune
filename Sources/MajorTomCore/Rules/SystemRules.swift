@@ -14,7 +14,7 @@ enum SystemRules {
         category: .system,
         tier: .review,
         impact: "Report only. This folder mixes caches with your local Claude state (sessions, extensions, VM bundles); deleting the wrong part signs you out or loses local data.",
-        recovery: "Not applicable — Major Tom doesn't clean it in v1.",
+        recovery: "Not applicable — Prune doesn't clean it in v1.",
         regenCost: "n/a",
         method: .reportOnly,
         baseDirectories: { [$0.path("Library/Application Support/Claude")] },
@@ -128,7 +128,7 @@ enum SystemRules {
 
 public enum RuleCatalogue {
     public static var all: [Rule] {
-        XcodeRules.all + JavaScriptRules.all + PackageManagerRules.all + AndroidRules.all
+        MediaRules.all + XcodeRules.all + JavaScriptRules.all + PackageManagerRules.all + AndroidRules.all
             + IDERules.all + ContainerRules.all + SystemRules.all + FilesRules.all + [OrphanedAppData.rule]
     }
 }

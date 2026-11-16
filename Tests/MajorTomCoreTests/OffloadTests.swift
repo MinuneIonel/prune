@@ -102,7 +102,7 @@ struct OffloadTests {
         #expect(record.manifest.symlinkCount == 2)
         #expect(w.store.records().map(\.id) == [record.id])
         #expect(w.store.manifest(id: record.id)?.entries.count == record.manifest.fileCount + record.manifest.directoryCount + 2)
-        #expect(w.fx.historyLog.entries().last?.items.first?.method == "offload to NAS, then move to Trash")
+        #expect(w.fx.historyLog.entries().last?.items.first?.method == "offload to external drive, then move to Trash")
 
         // Standard tar can read it.
         let untar = try w.fx.dir("untar", in: w.fx.root)
@@ -193,6 +193,16 @@ struct OffloadTests {
         #expect(w.store.records().isEmpty)
     }
 
+    @Test func externalDrivesCountButTheStartupDiskNeverDoes() {
+        #expect(LiveVolumeProbe.isExternalMount("/Volumes/Shoots SSD"))
+        #expect(!LiveVolumeProbe.isExternalMount("/"))
+        #expect(!LiveVolumeProbe.isExternalMount("/System/Volumes/Data"))
+        #expect(!LiveVolumeProbe.isExternalMount("/Volumes/"))
+        // A real folder on this Mac's own disk (what an unplugged drive leaves behind) is refused.
+        let home = FileManager.default.temporaryDirectory
+        if case .ready = DestinationCheck.check(home, probe: LiveVolumeProbe()) { Issue.record("the internal disk was accepted") }
+    }
+
     @Test func notMountedRefusesBeforeWritingAnything() async throws {
         let w = try World()
         let p = try w.project()
@@ -202,7 +212,7 @@ struct OffloadTests {
         #expect(!report.destination.isReady)
         if case .notNetwork = report.destination {} else { Issue.record("expected notNetwork, got \(report.destination)") }
         guard case .failed(let msg)? = report.results.first?.status else { Issue.record("not failed"); return }
-        #expect(msg.contains("not on the NAS"))
+        #expect(msg.contains("not on the external drive"))
         #expect(w.nasFiles().isEmpty)
         try expectUntouched(w, p, before: before)
 

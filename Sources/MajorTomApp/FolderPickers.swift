@@ -12,7 +12,7 @@ enum FolderPickers {
         panel.allowsMultipleSelection = false
         panel.directoryURL = model.environment.context.home
         panel.prompt = "Add"
-        panel.message = "Choose a folder your projects live in (Major Tom looks several levels deep)."
+        panel.message = "Choose a folder your projects live in (Prune looks several levels deep)."
         if panel.runModal() == .OK, let url = panel.url { model.addProjectRoot(url) }
     }
 
@@ -24,7 +24,7 @@ enum FolderPickers {
         panel.canCreateDirectories = true
         panel.directoryURL = model.offloadDestination ?? URL(filePath: "/Volumes", directoryHint: .isDirectory)
         panel.prompt = "Use This Folder"
-        panel.message = "Choose a folder on the mounted NAS share (connect it in Finder with ⌘K first)."
+        panel.message = "Choose a folder on your external drive (or on a connected network share)."
         if panel.runModal() == .OK, let url = panel.url { model.setOffloadDestination(url) }
     }
 }

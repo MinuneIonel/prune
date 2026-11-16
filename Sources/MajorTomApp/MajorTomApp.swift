@@ -11,7 +11,7 @@ struct MajorTomApp: App {
     @State private var watch = AppServices.shared.watch
 
     var body: some Scene {
-        Window(model.environment.isFixture ? "Major Tom — Fixture" : "Major Tom", id: "main") {
+        Window(model.environment.isFixture ? "Prune — Fixture" : "Prune", id: "main") {
             ContentView()
                 .environment(model)
                 .environment(watch)
@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Closing the window leaves Major Tom running in the menu bar.
+    /// Closing the window leaves Prune running in the menu bar.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -117,7 +117,7 @@ struct GroundControlCommands: Commands {
             Button("Rescan Projects") { model.startProjectScan() }
                 .disabled(model.isScanningProjects)
             Divider()
-            Button("Offload Selected to NAS…") { Task { await model.reviewOffload() } }
+            Button("Offload Selected to External Drive…") { Task { await model.reviewOffload() } }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
                 .disabled(model.checkedOffloadCandidates.isEmpty || model.offloadSession != nil)
             Divider()

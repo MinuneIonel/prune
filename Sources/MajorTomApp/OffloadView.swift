@@ -15,8 +15,8 @@ struct DestinationBanner: View {
                 .font(.title3)
                 .foregroundStyle(check.isReady ? .green : .orange)
             VStack(alignment: .leading, spacing: 1) {
-                Text(check.isReady ? "NAS ready — \(model.offloadDestination?.path ?? "")"
-                     : check == .notSet ? "No NAS folder chosen" : "NAS not available")
+                Text(check.isReady ? "External drive ready — \(model.offloadDestination?.path ?? "")"
+                     : check == .notSet ? "No destination chosen" : "External drive not connected")
                     .fontWeight(.semibold)
                 // No fixedSize here: above a List it inflates the window's content height (drawn off-window).
                 Text(check.isReady ? check.message : check.message.isEmpty ? "Checking…" : check.message)
@@ -25,13 +25,13 @@ struct DestinationBanner: View {
             }
             Spacer()
             if check == .notSet {
-                Button("Choose NAS Folder…") { FolderPickers.chooseNASFolder(model) }
+                Button("Choose Destination Folder…") { FolderPickers.chooseNASFolder(model) }
             } else if !check.isReady {
                 Button("Open Finder") {
-                    // Connecting is the user's call (Finder → Go → Connect to Server, ⌘K); Major Tom never mounts anything.
+                    // Connecting is the user's call (Finder → Go → Connect to Server, ⌘K); Prune never mounts anything.
                     NSWorkspace.shared.open(URL(filePath: "/System/Library/CoreServices/Finder.app"))
                 }
-                .help("Connect the share in Finder with Go → Connect to Server (⌘K), then Check Again")
+                .help("Plug in the external drive (or reconnect the network share), then Check Again")
             }
             Button("Check Again") { model.refreshDestination() }
             Button("Settings…") { openSettings() }
@@ -53,11 +53,11 @@ struct OffloadView: View {
                 DestinationBanner()
                 Divider()
                 ContentUnavailableView {
-                    Label("No NAS folder chosen", systemImage: "externaldrive.badge.questionmark")
+                    Label("No destination chosen", systemImage: "externaldrive.badge.questionmark")
                 } description: {
-                    Text("Offloading copies stale projects, Xcode archives and cold files to a folder on a mounted network share, verifies the copy, and only then moves the original to the Trash. Connect the share in Finder (Go → Connect to Server, ⌘K), then choose a folder on it.")
+                    Text("Offloading copies stale projects, Xcode archives and cold files to a folder on an external drive, verifies the copy, and only then moves the original to the Trash. Plug the drive in, then choose a folder on it. A network share works too.")
                 } actions: {
-                    Button("Choose NAS Folder…") { FolderPickers.chooseNASFolder(model) }
+                    Button("Choose Destination Folder…") { FolderPickers.chooseNASFolder(model) }
                         .buttonStyle(.glassProminent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -130,8 +130,8 @@ private struct OffloadHeader: View {
         let bytes = checked.reduce(Int64(0)) { $0 + ($1.size ?? 0) }
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Offload to NAS").font(.title2.weight(.semibold))
-                Text("Copy → verify on the NAS → manifest on the NAS and here → only then move the original to the Trash. Anything that fails leaves the original where it is.")
+                Text("Offload to External Drive").font(.title2.weight(.semibold))
+                Text("Copy → verify on the drive → manifest on the drive and here → only then move the original to the Trash. Anything that fails leaves the original where it is.")
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
             }
@@ -221,7 +221,7 @@ struct OffloadedView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("\(model.incompleteCopies.count) incomplete cop\(model.incompleteCopies.count == 1 ? "y" : "ies") on the NAS")
+                        Text("\(model.incompleteCopies.count) incomplete cop\(model.incompleteCopies.count == 1 ? "y" : "ies") on the external drive")
                             .fontWeight(.semibold)
                         Text("Left by an interrupted offload (folders ending in “.partial”). Their originals were never touched.")
                             .foregroundStyle(.secondary)
@@ -245,7 +245,7 @@ struct OffloadedView: View {
             .overlay {
                 if model.offloadRecords.isEmpty {
                     ContentUnavailableView("Nothing offloaded yet", systemImage: "externaldrive",
-                                           description: Text("Things you offload to the NAS show up here, ready to restore."))
+                                           description: Text("Things you offload to the external drive show up here, ready to restore."))
                 }
             }
         }
@@ -253,7 +253,7 @@ struct OffloadedView: View {
             await Task.yield()
             await model.refreshDestinationNow()
         }
-        .confirmationDialog("Remove the incomplete copies from the NAS?", isPresented: $confirmRemovePartials) {
+        .confirmationDialog("Remove the incomplete copies from the external drive?", isPresented: $confirmRemovePartials) {
             Button("Remove \(model.incompleteCopies.count) Incomplete Cop\(model.incompleteCopies.count == 1 ? "y" : "ies")", role: .destructive) {
                 Task { await model.removeIncompleteCopies() }
             }
@@ -279,7 +279,7 @@ private struct OffloadedRow: View {
                 }
                 Text("From \(m.sourcePath.replacingOccurrences(of: model.environment.context.home.path, with: "~"))")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                Text("On the NAS: \(m.archivePath)").font(.caption).foregroundStyle(.secondary)
+                Text("On the external drive: \(m.archivePath)").font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
                 Text("\(m.fileCount) files · \(m.format == .tar ? "one tar archive" : "plain copy") · verified \(m.createdAt.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption).foregroundStyle(.secondary)
@@ -297,7 +297,7 @@ private struct OffloadedRow: View {
                     Button("Restore") { Task { await model.reviewRestore(record) } }
                     Menu {
                         Button("Restore To…") { chooseFolder() }
-                        Button("Show on NAS") { NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: m.payloadPath)]) }
+                        Button("Show on Drive") { NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: m.payloadPath)]) }
                             .disabled(!reachable)
                         Button("Copy Restore Command") {
                             NSPasteboard.general.clearContents()
@@ -310,7 +310,7 @@ private struct OffloadedRow: View {
                 .controlSize(.small)
                 .disabled(!reachable || model.restoreSession != nil)
                 if !reachable {
-                    Text("NAS not mounted").font(.caption).foregroundStyle(.orange)
+                    Text("Drive not connected").font(.caption).foregroundStyle(.orange)
                 }
             }
         }
@@ -335,7 +335,7 @@ private struct OffloadedRow: View {
         panel.canCreateDirectories = true
         panel.directoryURL = model.environment.context.home
         panel.prompt = "Restore Here"
-        panel.message = "Major Tom restores “\(URL(filePath: record.manifest.sourcePath).lastPathComponent)” into this folder. It never overwrites anything."
+        panel.message = "Prune restores “\(URL(filePath: record.manifest.sourcePath).lastPathComponent)” into this folder. It never overwrites anything."
         if panel.runModal() == .OK, let url = panel.url { Task { await model.reviewRestore(record, into: url) } }
     }
 }

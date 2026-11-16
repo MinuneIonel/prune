@@ -15,6 +15,9 @@ public enum CheckState: Sendable, Equatable { case none, some, all }
 @Observable
 public final class GroundControlModel {
     public let environment: AppEnvironment
+    /// The space map and the linked folders keep their own state.
+    public let atlas: AtlasModel
+    public let links: LinksModel
     @ObservationIgnored private let scanner: MajorTomCore.Scanner
     @ObservationIgnored private var scanTask: Task<Void, Never>?
 
@@ -66,6 +69,8 @@ public final class GroundControlModel {
 
     public init(environment: AppEnvironment) {
         self.environment = environment
+        self.atlas = AtlasModel(environment: environment)
+        self.links = LinksModel(environment: environment)
         let settings = environment.settingsStore.load()
         var context = environment.context
         context.settings = settings

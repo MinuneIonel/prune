@@ -70,7 +70,7 @@ private struct RuleInfoHeader: View {
         case .delete: "Deleted outright (a cache in the Trash frees nothing)."
         case .trash: "Moved to the Trash, so you can still put it back."
         case .command(let argv): "By the owning tool: \(argv.joined(separator: " "))"
-        case .reportOnly: "Report only. Major Tom shows it but never removes it."
+        case .reportOnly: "Report only. Prune shows it but never removes it."
         }
     }
 

@@ -13,7 +13,7 @@ struct RuleTests {
                    "simulator-caches", "cocoapods-cache", "swiftpm-cache", "npm-cache", "pnpm-store", "yarn-bun-cache",
                    "nvm-node-versions", "expo-cache", "gradle-caches", "android-sdk", "android-avds", "cargo-rustup",
                    "homebrew-cache", "jetbrains-caches", "docker", "claude-desktop-data", "app-caches", "logs", "trash",
-                   "local-snapshots"] {
+                   "local-snapshots", "resolve-render-cache", "adobe-media-cache", "capture-one-previews"] {
             #expect(ids.contains(id), "missing \(id)")
         }
         for r in RuleCatalogue.all { #expect(!r.impact.isEmpty && !r.recovery.isEmpty && !r.regenCost.isEmpty) }

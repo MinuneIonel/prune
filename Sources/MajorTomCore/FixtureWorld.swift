@@ -36,6 +36,9 @@ public struct FixtureWorld: Sendable {
     public var nasFolder: URL { root.appending(path: "NAS", directoryHint: .isDirectory) }
     public var offloadStore: OffloadStore { OffloadStore(directory: root.appending(path: "offloads", directoryHint: .isDirectory)) }
     public let nasProbe: FakeVolumeProbe
+    /// The fixture's "external drive" and the links that point at it.
+    public var driveFolder: URL { root.appending(path: "Drive", directoryHint: .isDirectory) }
+    public var linkStore: LinkStore { LinkStore(directory: root.appending(path: "links", directoryHint: .isDirectory)) }
 
     /// Creates a fresh fixture tree. `scale` multiplies file sizes (tests use small ones).
     /// `empty` creates only the folders (no files, no projects, no NAS folder chosen).
@@ -110,6 +113,7 @@ public struct FixtureWorld: Sendable {
         try populateProjects(mb: mb)
         try populateUserFiles(mb: mb)
         try populateApps()
+        try populateStudio(mb: mb)
         try settingsStore.save(settings)
     }
 
@@ -148,6 +152,66 @@ public struct FixtureWorld: Sendable {
         let app = home.appending(path: "Downloads/Hunky Dory.app")
         try Self.backdate(app, to: Date(timeIntervalSinceNow: -90 * day))
         try FileTimes.set(app, modified: Date(timeIntervalSinceNow: -90 * day), added: Date(timeIntervalSinceNow: -90 * day))
+    }
+
+    /// An artist's working folder (`~/Studio`) linked to a folder on the fixture's "external drive": one shoot
+    /// fully backed up and long untouched, one half backed up, one new, one edited since its backup, and one that
+    /// only exists on the drive. Plus camera cards, recordings and render caches for the space map.
+    private func populateStudio(mb: (Double) -> Int) throws {
+        let day: Double = 86400
+        let drive = driveFolder.appending(path: "Studio Backup", directoryHint: .isDirectory)
+        // path below Studio, bytes, days since touched, on this Mac, on the drive
+        let files: [(String, Int, Double, Bool, Bool)] = [
+            ("2026-03 Starman promo/raw/DSC_0412.ARW", mb(9), 200, true, true),
+            ("2026-03 Starman promo/raw/DSC_0413.ARW", mb(9), 200, true, true),
+            ("2026-03 Starman promo/Starman promo.drp", mb(0.3), 190, true, true),
+            ("2026-03 Starman promo/exports/Starman promo master.mov", mb(22), 190, true, true),
+            ("2026-06 Festival visuals/loops/tunnel_A.mov", mb(14), 150, true, true),
+            ("2026-06 Festival visuals/loops/tunnel_B.mov", mb(14), 150, true, true),
+            ("2026-06 Festival visuals/Festival set.avc", mb(0.2), 150, true, true),
+            ("2026-10 Club residency/footage/C0001.MP4", mb(16), 20, true, true),
+            ("2026-10 Club residency/footage/C0002.MP4", mb(16), 20, true, false),
+            ("2026-10 Club residency/stills/IMG_2210.CR3", mb(6), 20, true, false),
+            ("2026-11 Lookbook shoot/capture/_DSC8801.NEF", mb(8), 1, true, false),
+            ("2026-11 Lookbook shoot/capture/_DSC8802.NEF", mb(8), 1, true, false),
+            ("2026-11 Lookbook shoot/Lookbook.cosessiondb", mb(0.5), 1, true, false),
+            ("Showreel 2026.mov", mb(18), 45, true, true),
+            ("2025 Archive tour/day1/A001C003_250412.braw", mb(25), 400, false, true),
+            ("2025 Archive tour/day2/A002C011_250413.braw", mb(21), 400, false, true),
+        ]
+        for (rel, bytes, days, local, remote) in files {
+            let date = Date(timeIntervalSinceNow: -days * day)
+            for (wanted, base) in [(local, home.appending(path: "Studio")), (remote, drive)] where wanted {
+                let url = base.appending(path: rel)
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data(count: bytes).write(to: url)
+                try FileTimes.set(url, modified: date, added: date)
+            }
+        }
+        // Edited after it was backed up: the local grade is newer than the drive's copy.
+        let edited = home.appending(path: "Studio/2026-06 Festival visuals/Festival set.avc")
+        try Data(count: mb(0.25)).write(to: edited)
+        try FileTimes.set(edited, modified: Date(timeIntervalSinceNow: -100 * day))
+
+        let extras: [(String, Int, Double)] = [
+            ("Movies/CacheClip/a1b2/frame_cache.dvcc", mb(24), 30),
+            ("Movies/Resolve Project Backups/Starman promo_backup.drp", mb(2), 60),
+            ("Movies/2026-11-15 19-33-50.mov", mb(4.5), 1),
+            ("Movies/2026-10-27 11-46-41.mov", mb(4), 20),
+            ("Pictures/Capture One Catalog.cocatalog/Cache/Proxies/DSC_0412.cop", mb(7), 40),
+            ("Pictures/Card dumps/DJI_0042.MP4", mb(13), 80),
+            ("Pictures/Card dumps/GOPR0193.MP4", mb(8), 80),
+            ("Music/Stems/set-intro.wav", mb(6), 70),
+            ("Library/Application Support/Adobe/Common/Media Cache Files/peak.pek", mb(5), 30),
+        ]
+        for (rel, bytes, days) in extras {
+            let url = home.appending(path: rel)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(count: bytes).write(to: url)
+            try FileTimes.set(url, modified: Date(timeIntervalSinceNow: -days * day))
+        }
+        try linkStore.save([FolderLink(name: "Studio", source: home.appending(path: "Studio").path(percentEncoded: false),
+                                       destination: drive.path(percentEncoded: false))])
     }
 
     /// An installed app (with a nested helper) and Library data of installed, removed and unknowable apps.
@@ -349,7 +413,7 @@ public enum FixtureGit {
     public static func run(_ args: [String], in dir: URL, date: Date) throws {
         let p = Process()
         p.executableURL = URL(filePath: "/usr/bin/git")
-        p.arguments = ["-c", "user.name=Major Tom", "-c", "user.email=majortom@example.invalid", "-c", "commit.gpgsign=false"] + args
+        p.arguments = ["-c", "user.name=Prune", "-c", "user.email=majortom@example.invalid", "-c", "commit.gpgsign=false"] + args
         p.currentDirectoryURL = dir
         var env = ProcessInfo.processInfo.environment.merging(isolatedEnvironment) { _, new in new }
         let stamp = "\(Int(date.timeIntervalSince1970)) +0000"
@@ -399,7 +463,7 @@ public enum FixtureRules {
     /// context only knows the fixture's own `Applications` folder.
     public static var all: [Rule] {
         [derivedData, npm, logs, nodeVersions, pnpm, gradle, archives, snapshots]
-            + FilesRules.all + [OrphanedAppData.rule]
+            + MediaRules.all + FilesRules.all + [OrphanedAppData.rule]
     }
 
     static let derivedData = Rule(

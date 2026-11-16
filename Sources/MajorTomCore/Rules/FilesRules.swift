@@ -116,7 +116,7 @@ enum FilesRules {
 
     static func deniedMessage(_ denied: [String]) -> String {
         let list = ListFormatter.localizedString(byJoining: denied)
-        return "macOS privacy protection kept Major Tom out of \(list), so files there aren't listed. Allow access in System Settings → Privacy & Security → Files & Folders (or Full Disk Access), then rescan."
+        return "macOS privacy protection kept Prune out of \(list), so files there aren't listed. Allow access in System Settings → Privacy & Security → Files & Folders (or Full Disk Access), then rescan."
     }
 
     /// Disk images attached right now (`hdiutil info`), so a mounted installer is never offered.
@@ -216,7 +216,8 @@ enum UserFilesWalker {
     static let maxDepth = 24
     static let maxEntries = 400_000
     /// Folders inside the scanned ones that belong to an app (the TV app's managed media).
-    static let skippedSubfolders: Set<String> = ["Movies/TV"]
+    /// Resolve's render cache is offered by its own rule (deleted outright, regenerates), not as "your large files".
+    static let skippedSubfolders: Set<String> = ["Movies/TV", "Movies/CacheClip"]
 
     static func scan(home: URL, settings: Settings) -> UserFilesScan {
         var out = UserFilesScan()

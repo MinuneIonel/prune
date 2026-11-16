@@ -5,11 +5,11 @@ import Foundation
 public struct OffloadProgress: Sendable, Equatable {
     public enum Phase: String, Sendable {
         case checking = "Checking"
-        case copying = "Copying to the NAS"
-        case verifying = "Verifying the copy on the NAS"
+        case copying = "Copying to the external drive"
+        case verifying = "Verifying the copy on the external drive"
         case finishing = "Writing the manifest"
         case trashing = "Moving the original to the Trash"
-        case restoring = "Copying back from the NAS"
+        case restoring = "Copying back from the external drive"
         case checkingRestore = "Checking the restored copy"
     }
 
@@ -145,7 +145,7 @@ public struct OffloadEngine: Sendable {
 
     /// The destination, for steps that run only after `checkDestination()` said it's ready.
     private func requireDestination() throws -> URL {
-        guard let destination else { throw OffloadError.notNetworkVolume("no NAS folder has been chosen") }
+        guard let destination else { throw OffloadError.notNetworkVolume("no destination folder has been chosen") }
         return destination
     }
 
@@ -370,11 +370,11 @@ public struct OffloadEngine: Sendable {
         let path = partial.path(percentEncoded: false)
         guard partial.lastPathComponent.hasSuffix(OffloadLayout.partialSuffix) else { return "left in place: \(path)" }
         guard (try? ensureSameShare(share)) != nil else {
-            return "The share went away, so the incomplete copy couldn't be removed; it stays marked as incomplete (\(partial.lastPathComponent)) and can be removed from the Offloaded list later."
+            return "The drive went away, so the incomplete copy couldn't be removed; it stays marked as incomplete (\(partial.lastPathComponent)) and can be removed from the Offloaded list later."
         }
         do {
             try FileManager.default.removeItem(at: partial)
-            return "The incomplete copy on the NAS was removed."
+            return "The incomplete copy on the external drive was removed."
         } catch {
             return "The incomplete copy couldn't be removed (\(error.localizedDescription)); it stays marked as incomplete at \(path)."
         }
@@ -383,7 +383,7 @@ public struct OffloadEngine: Sendable {
     func ensureSameShare(_ share: VolumeStatus) throws {
         let destination = try requireDestination()
         guard let now = probe.status(of: destination) else { throw OffloadError.shareChanged("\(destination.path) is gone") }
-        guard now.isNetwork, now.identity == share.identity else {
+        guard now.isExternal, now.identity == share.identity else {
             throw OffloadError.shareChanged("\(destination.path) is no longer \(share.mountedFrom)")
         }
     }
@@ -473,7 +473,7 @@ public struct OffloadEngine: Sendable {
         var st = stat()
         guard stat(payloadPath, &st) == 0 else { throw posixError("can't read back", payloadPath) }
         guard Int64(st.st_size) == payloadBytes else {
-            throw OffloadError.verification("the NAS copy is \(st.st_size) bytes, \(payloadBytes) were written")
+            throw OffloadError.verification("the copy on the drive is \(st.st_size) bytes, \(payloadBytes) were written")
         }
         var lastMountCheck: Int64 = 0
         let src = try PayloadSource(path: payloadPath) { read in
@@ -515,12 +515,12 @@ public struct OffloadEngine: Sendable {
             }
             guard seen.count == expected.count else {
                 let missing = Set(expected.keys).subtracting(seen).sorted().prefix(3).map { $0.isEmpty ? "." : $0 }
-                throw OffloadError.verification("missing from the NAS copy: \(missing.joined(separator: ", "))")
+                throw OffloadError.verification("missing from the copy on the drive: \(missing.joined(separator: ", "))")
             }
             guard try src.atEnd() else { throw OffloadError.verification("unexpected data after the end of the archive") }
         }
         if let sha = src.sha256, sha != payloadSHA {
-            throw OffloadError.verification("the NAS copy's checksum differs from what was written")
+            throw OffloadError.verification("the copy on the drive's checksum differs from what was written")
         }
     }
 
@@ -585,8 +585,8 @@ public struct OffloadEngine: Sendable {
             let targetPath = target.path(percentEncoded: false)
             var st = stat()
             if lstat(targetPath, &st) == 0 { throw OffloadError.alreadyExists(targetPath) }
-            if let mount = probe.status(of: parent), mount.isNetwork {
-                throw OffloadError.refused("restore to a folder on this Mac, not onto a network share")
+            if let mount = probe.status(of: parent), mount.isExternal {
+                throw OffloadError.refused("restore to a folder on this Mac, not onto an external drive or network share")
             }
             let fm = FileManager.default
             if !fm.fileExists(atPath: parent.path(percentEncoded: false)) {
@@ -625,7 +625,7 @@ public struct OffloadEngine: Sendable {
             case .file: result.xattrFailures = try extractFile(src, to: staged, manifest: manifest)
             }
             guard src.sha256 == manifest.payloadSHA256 else {
-                throw OffloadError.verification("the NAS copy no longer matches its manifest checksum")
+                throw OffloadError.verification("the copy on the drive no longer matches its manifest checksum")
             }
             reporter.phase(.checkingRestore, total: 0)
             let walked = try SourceTree.walk(staged)
@@ -655,14 +655,14 @@ public struct OffloadEngine: Sendable {
         let nasURL = URL(filePath: record.manifest.manifestPath)
         if let data = try? Data(contentsOf: nasURL) {
             let m = try OffloadStore.decoder.decode(OffloadManifest.self, from: data)
-            guard m.id == record.id else { throw OffloadError.manifest("the manifest on the NAS belongs to another offload") }
+            guard m.id == record.id else { throw OffloadError.manifest("the manifest on the external drive belongs to another offload") }
             return m
         }
         guard FileManager.default.fileExists(atPath: record.manifest.archivePath) else {
             throw OffloadError.notMounted("\(record.manifest.archivePath) isn't reachable")
         }
         if let local = store.manifest(id: record.id) { return local }
-        throw OffloadError.manifest("manifest.json is missing on the NAS and on this Mac")
+        throw OffloadError.manifest("manifest.json is missing on the external drive and on this Mac")
     }
 
     private func extractTar(_ src: PayloadSource, to base: URL, manifest: OffloadManifest) throws -> Int {
@@ -718,7 +718,7 @@ public struct OffloadEngine: Sendable {
         guard let entry = manifest.entries.first, entry.kind == .file else { throw OffloadError.manifest("no file entry") }
         let path = dest.path(percentEncoded: false)
         try writeRestoredFile(src, to: path, entry: entry)
-        guard try src.atEnd() else { throw OffloadError.verification("the NAS copy is longer than the manifest says") }
+        guard try src.atEnd() else { throw OffloadError.verification("the copy on the drive is longer than the manifest says") }
         let attrs = (manifest.fileXattrs ?? [:]).map { (name: $0.key, value: $0.value) }.sorted { $0.name < $1.name }
         let failures = XAttr.write(attrs, to: path)
         Self.setTimes(path, entry.modified)
@@ -796,7 +796,7 @@ public struct OffloadEngine: Sendable {
                   var m = try? OffloadStore.decoder.decode(OffloadManifest.self, from: data),
                   store.record(id: m.id) == nil else { continue }
             m.archivePath = clean(url.deletingLastPathComponent().path(percentEncoded: false))
-            let r = OffloadRecord(manifest: m, original: .kept("found on the NAS (offloaded from \(m.sourceHost))"),
+            let r = OffloadRecord(manifest: m, original: .kept("found on the external drive (offloaded from \(m.sourceHost))"),
                                   restores: [], importedFromShare: true)
             do {
                 try store.saveManifest(m)
@@ -809,7 +809,7 @@ public struct OffloadEngine: Sendable {
 
     /// Deletes the `.partial` folders interrupted offloads left on the share — only those, and only while it's mounted.
     public func removeIncompleteCopies() -> (removed: Int, failed: [String]) {
-        guard checkDestination().isReady, let destination else { return (0, ["the share isn't mounted"]) }
+        guard checkDestination().isReady, let destination else { return (0, ["the drive isn't connected"]) }
         var removed = 0
         var failed: [String] = []
         for p in OffloadLayout.partials(in: destination) where p.lastPathComponent.hasSuffix(OffloadLayout.partialSuffix) {
@@ -825,7 +825,7 @@ public struct OffloadEngine: Sendable {
 
     // MARK: Candidates and validation
 
-    /// Fresh check that this candidate is still something Major Tom would offer, and that its path passes the same
+    /// Fresh check that this candidate is still something Prune would offer, and that its path passes the same
     /// validation as a clean (inside home, not protected, not a volume or configured root, no symlink escape).
     func revalidate(_ c: OffloadCandidate) async throws {
         let validator = PathValidator(context: context)
@@ -953,13 +953,13 @@ public struct OffloadEngine: Sendable {
             switch r.status {
             case .offloaded(let trashed):
                 ok = trashed
-                if !trashed, case .kept(let why)? = r.record?.original { error = "copied to the NAS; original kept: \(why)" }
+                if !trashed, case .kept(let why)? = r.record?.original { error = "copied to the external drive; original kept: \(why)" }
             case .failed(let e): error = e
             default: break
             }
             return HistoryEntry.ItemRecord(ruleID: "offload:" + r.candidate.kind.rawValue, itemID: r.candidate.id,
                                            displayName: r.candidate.displayName, path: r.candidate.path.path,
-                                           method: "offload to NAS, then move to Trash", estimatedBytes: r.candidate.size,
+                                           method: "offload to external drive, then move to Trash", estimatedBytes: r.candidate.size,
                                            succeeded: ok, error: error)
         }
         let estimate = attempted.filter { $0.status == .offloaded(trashed: true) }.reduce(Int64(0)) { $0 + ($1.candidate.size ?? 0) }

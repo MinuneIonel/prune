@@ -8,20 +8,21 @@ public struct VolumeStatus: Sendable, Equatable {
     public var fileSystem: String
     /// E.g. `//user@nas.local/Archive`.
     public var mountedFrom: String
-    /// Not a local file system (MNT_LOCAL clear) and a known network file system type.
-    public var isNetwork: Bool
+    /// A separate volume from this Mac's own disk: an external drive (a local file system mounted under
+    /// `/Volumes`) or a network share (MNT_LOCAL clear and a known network file system type).
+    public var isExternal: Bool
     public var isReadOnly: Bool
     public var availableBytes: Int64
     public var totalBytes: Int64
     /// Identifies this particular mount; a remount or a different volume at the same path changes it.
     public var identity: String
 
-    public init(mountPoint: String, fileSystem: String, mountedFrom: String, isNetwork: Bool, isReadOnly: Bool,
+    public init(mountPoint: String, fileSystem: String, mountedFrom: String, isExternal: Bool, isReadOnly: Bool,
                 availableBytes: Int64, totalBytes: Int64, identity: String) {
         self.mountPoint = mountPoint
         self.fileSystem = fileSystem
         self.mountedFrom = mountedFrom
-        self.isNetwork = isNetwork
+        self.isExternal = isExternal
         self.isReadOnly = isReadOnly
         self.availableBytes = availableBytes
         self.totalBytes = totalBytes
@@ -42,6 +43,12 @@ public struct LiveVolumeProbe: VolumeProbe {
 
     public init() {}
 
+    /// A local volume mounted under `/Volumes` is an external (or at least separate) drive. The startup disk
+    /// (`/`, `/System/Volumes/Data`) never is, which is what keeps an unplugged drive's leftover folder out.
+    public static func isExternalMount(_ mountPoint: String) -> Bool {
+        mountPoint.hasPrefix("/Volumes/") && mountPoint.count > "/Volumes/".count
+    }
+
     public func status(of url: URL) -> VolumeStatus? {
         var fs = statfs()
         guard statfs(url.path(percentEncoded: false), &fs) == 0 else { return nil }
@@ -53,7 +60,7 @@ public struct LiveVolumeProbe: VolumeProbe {
         let mountPoint = str(fs.f_mntonname)
         return VolumeStatus(
             mountPoint: mountPoint, fileSystem: type, mountedFrom: str(fs.f_mntfromname),
-            isNetwork: !local && Self.networkFileSystems.contains(type),
+            isExternal: local ? Self.isExternalMount(mountPoint) : Self.networkFileSystems.contains(type),
             isReadOnly: (fs.f_flags & UInt32(MNT_RDONLY)) != 0,
             availableBytes: Int64(fs.f_bavail) * Int64(fs.f_bsize), totalBytes: Int64(fs.f_blocks) * Int64(fs.f_bsize),
             identity: "\(fs.f_fsid.val.0):\(fs.f_fsid.val.1):\(mountPoint)")
@@ -104,11 +111,11 @@ public final class FakeVolumeProbe: VolumeProbe, @unchecked Sendable {
         guard state.0, inside else {
             // What an unmounted /Volumes/<share> looks like: a plain folder on the internal disk.
             return VolumeStatus(mountPoint: "/System/Volumes/Data", fileSystem: "apfs", mountedFrom: "/dev/disk3s5",
-                                isNetwork: false, isReadOnly: false, availableBytes: VolumeInfo.availableBytes(at: url) ?? 0,
+                                isExternal: false, isReadOnly: false, availableBytes: VolumeInfo.availableBytes(at: url) ?? 0,
                                 totalBytes: VolumeInfo.totalBytes(at: url) ?? 0, identity: "local")
         }
         return VolumeStatus(mountPoint: rootPath, fileSystem: "smbfs", mountedFrom: "//fixture@nas.local/MajorTom",
-                            isNetwork: true, isReadOnly: false,
+                            isExternal: true, isReadOnly: false,
                             availableBytes: state.1 ?? VolumeInfo.availableBytes(at: url) ?? 0,
                             totalBytes: VolumeInfo.totalBytes(at: url) ?? 0, identity: "fake:" + rootPath)
     }
@@ -139,11 +146,11 @@ public enum DestinationCheck: Sendable, Equatable {
         case .ready(let s):
             "\(s.mountedFrom) (\(s.fileSystem)), \(ByteFormat.string(s.availableBytes)) free"
         case .notSet:
-            "No NAS folder chosen yet. Mount the share in Finder (⌘K), then choose a folder on it."
+            "No destination chosen yet. Plug in the external drive (or connect the network share), then choose a folder on it."
         case .missing(let p):
-            "\(p) isn't there — the NAS share isn't mounted. Connect to it in Finder (⌘K), then check again."
+            "\(p) isn't there — the external drive isn't connected. Plug it in (or reconnect the share), then check again."
         case .notNetwork(let p, let s):
-            "\(p) is on this Mac's own disk (\(s.fileSystem) at \(s.mountPoint)), not on the NAS. The share is probably not mounted; copying there would fill the internal disk."
+            "\(p) is on this Mac's own disk (\(s.fileSystem) at \(s.mountPoint)), not on the external drive. The drive is probably not connected; copying there would fill the internal disk."
         case .readOnly(let s):
             "\(s.mountedFrom) is mounted read-only."
         }
@@ -154,7 +161,7 @@ public enum DestinationCheck: Sendable, Equatable {
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue,
               let status = probe.status(of: destination) else { return .missing(path) }
-        guard status.isNetwork, status.mountPoint != "/" else { return .notNetwork(path, status) }
+        guard status.isExternal, status.mountPoint != "/" else { return .notNetwork(path, status) }
         if status.isReadOnly { return .readOnly(status) }
         return .ready(status)
     }

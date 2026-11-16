@@ -1,11 +1,56 @@
-# Major Tom
+# Prune
 
-*Ground Control to Major Tom: you're running out of space.*
+*To prune: cut away the excess so the rest can grow. Also a nod to Dumitru Prunariu, the only Romanian to have
+flown in space.*
 
-A disk cleaner for developer Macs that tells you what deleting each thing actually costs you before it deletes
-anything.
+A disk space manager for people who make photos, video and code on a Mac. It shows what fills the disk and where
+it came from, keeps working folders in step with their backup on another drive, and points out what could leave
+the Mac safely.
 
-![Major Tom main window](docs/screenshots/main-light.png)
+Prune is a fork of [Major Tom](https://github.com/tjlondon-npauctions/majortom) (MIT, see `LICENSE`), a
+developer disk cleaner, combined with the sunburst idea of DiskViz. Everything Major Tom does is still here under
+**Clean Up**; its safety model applies to the new parts too.
+
+## What it adds
+
+- **Map.** One walk of your home folder (or any folder or drive) drawn as a sunburst, coloured by kind: photos,
+  video, audio, project files, code, caches. Click to zoom in, click the centre to back out.
+- **Where it comes from.** Files are attributed to the app, camera or site they came from, using names, locations
+  and the download metadata macOS keeps: DaVinci Resolve, Capture One, OBS recordings, a Sony or Blackmagic
+  camera, AirDrop, a website. File contents are never read for this.
+- **Linked folders.** Pair a working folder with its copy on an external drive. Each shoot or project in it shows
+  as backed up, partly backed up, not backed up, or on the backup only.
+  - *Back Up* copies what is missing or newer, reads each copy back from the drive and compares it.
+  - *Offload* frees the local copy of things that are fully on the backup and untouched for a number of days you
+    choose. Every file is compared with its copy (size, date, content) right before, then the item goes to the
+    Trash. One mismatch and the whole item stays.
+  - *Bring Back* copies an offloaded item back.
+  - With the drive unplugged, the last comparison is remembered and marked as such; nothing can be offloaded.
+- **Photo & video app caches** under Clean Up: Resolve render cache, Adobe media cache, Capture One catalog
+  previews, each with what deleting it costs.
+
+Nothing on a backup is ever deleted, and a file that is newer on the backup is never overwritten.
+
+## Build
+
+Needs Xcode (not just the Command Line Tools). If `xcode-select` points at the Command Line Tools, prefix the
+commands with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
+
+```sh
+swift build && swift test
+scripts/bundle.sh                 # -> build/Prune.app + build/majortom
+open build/Prune.app
+build/Prune.app/Contents/MacOS/Prune --fixture   # try it on fake data; nothing real is touched
+build/majortom map                # read-only: what fills the home folder, in the terminal
+build/majortom compare --from <folder> --to <backup folder>
+```
+
+Module and command-line names are still Major Tom's (`MajorTomCore`, `majortom`). Settings live in
+`~/Library/Application Support/Prune`.
+
+---
+
+The rest of this document is Major Tom's own README, which describes the Clean Up side.
 
 ## Why it exists
 
@@ -28,8 +73,9 @@ Major Tom is built around the question you actually ask: *if I delete this, what
   estimates.
 - **Project hibernation.** Stale projects get their `node_modules`, `Pods`, build output and similar removed, with
   the reinstall command recorded. Source and anything git tracks are never touched.
-- **NAS offload with verification.** Move stale projects, Xcode archives and cold large files to a network share;
-  the copy is read back and checksummed before the original goes to the Trash. One-click restore.
+- **External-drive offload with verification.** Move stale projects, Xcode archives and cold large files to an
+  external drive (or a network share); the copy is read back and checksummed before the original goes to the
+  Trash. One-click restore.
 - **Menu bar alerts.** Free space at a glance, an optional low-space notification, and Quick Clean for safe items.
 
 | | |
@@ -51,7 +97,7 @@ Major Tom is built around the question you actually ask: *if I delete this, what
 - App caches and logs, the Trash
 - Large and old files, installer leftovers in Downloads, data left behind by removed apps (all Trash only)
 - Projects view with stale detection, git warnings (uncommitted, unpushed, no remote), pin and hide
-- NAS offload and restore, history of every real clean
+- Offload to an external drive and restore, history of every real clean
 - `majortom` command-line tool with JSON output
 
 Tools you don't have installed simply show nothing.
@@ -63,7 +109,7 @@ Tools you don't have installed simply show nothing.
   allow-listed system folder for simulators), never `~`, `~/Library`, `~/Documents`, a project root or a volume
   root, and not reached through a symlink that escapes.
 - Caches are deleted outright (trashing a cache frees nothing). Your own files only ever go to the Trash.
-- Offloads move the original to the Trash only after the copy on the NAS has been verified.
+- Offloads move the original to the Trash only after the copy on the external drive has been verified.
 - It never uses `sudo`. Fixes that need admin rights are shown as a command for you to run.
 - Every real clean, hibernation and offload is logged to
   `~/Library/Application Support/MajorTom/history.jsonl`.
@@ -104,8 +150,8 @@ copy is running. The CLI stays at `build/majortom`; copy it onto your `PATH` if 
 - **Project folders** are detected automatically (`~/Projects`, `~/Developer`, `~/Code`, `~/src`, `~/repos`,
   `~/WebstormProjects`, `~/IdeaProjects`, `~/Documents/GitHub`, …). If none exist, the Projects view offers
   **Add Project Folder…**; change the list any time in Settings → Projects.
-- **NAS offload** is off until you choose a folder: connect the share in Finder (⌘K), then **Choose NAS Folder…** in
-  the Offload view or Settings → NAS. Local folders are refused.
+- **Offload to an external drive** is off until you choose a folder: plug the drive in, then **Choose Destination
+  Folder…** in the Offload view or Settings → External. Folders on the Mac's own disk are refused.
 - **Your own apps:** add your bundle-ID prefix (e.g. `com.yourname.`) under Settings → Files so data from apps you
   build is never called a leftover.
 
@@ -132,7 +178,7 @@ build/MajorTom.app/Contents/MacOS/MajorTom --fixture
 ```
 
 Runs the app against a throwaway fake home in the temp folder (deleted on quit), with fake caches, projects and
-files, simulated commands, a fixture Trash folder and a fake NAS share. Nothing real is touched, so you can click
+files, simulated commands, a fixture Trash folder and a fake external drive. Nothing real is touched, so you can click
 every button. `--fixture-empty` shows what a fresh Mac looks like. More dev flags (`--demo`, `--sidebar`,
 `--snapshot`) are listed in [CLAUDE.md](CLAUDE.md).
 
@@ -147,7 +193,7 @@ tests every rule needs.
 
 - A personal project, built with AI coding agents (Claude Code) and reviewed by its author. It does what its
   author needs; it is not a product.
-- Tested on one Mac. Folder layouts, tool versions and NAS setups on yours may differ.
+- Tested on one Mac. Folder layouts, tool versions and drive setups on yours may differ.
 - Ad-hoc signed and not notarised. There are no prebuilt releases: build it from source.
 - Not sandboxed (it couldn't do its job otherwise) and not on the App Store.
 - Real notifications and the login item have only been exercised through test fakes.

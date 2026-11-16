@@ -14,7 +14,7 @@ struct SettingsView: View {
             Tab("Projects", systemImage: "moon.zzz", value: "projects") { ProjectSettings() }
             Tab("Files", systemImage: "doc.on.doc", value: "files") { FilesSettings() }
             Tab("Alerts", systemImage: "bell.badge", value: "alerts") { AlertsSettings() }
-            Tab("NAS", systemImage: "externaldrive.connected.to.line.below", value: "nas") { NASSettings() }
+            Tab("External", systemImage: "externaldrive", value: "nas") { NASSettings() }
             Tab("Ignored", systemImage: "eye.slash", value: "ignored") { IgnoredSettings() }
             Tab("Access", systemImage: "lock.shield", value: "access") { AccessSettings() }
         }
@@ -81,7 +81,7 @@ private struct ProjectSettings: View {
                 Text((model.settings.projectRootsAreAutomatic
                       ? "Detected automatically from the usual folders (~/Projects, ~/Developer, ~/Code, ~/src, ~/WebstormProjects, ~/IdeaProjects, …). Adding or removing one switches to your own list. "
                       : "")
-                     + "Major Tom looks for projects (a folder with .git, package.json, Podfile, Cargo.toml, …) up to \(ProjectScanner.maxContainerDepth) levels below these folders.")
+                     + "Prune looks for projects (a folder with .git, package.json, Podfile, Cargo.toml, …) up to \(ProjectScanner.maxContainerDepth) levels below these folders.")
                     .foregroundStyle(.secondary)
             }
             Section("Staleness") {
@@ -143,7 +143,7 @@ private struct IgnoredSettings: View {
                     }
                 }
             } header: {
-                Text("Items Major Tom never offers")
+                Text("Items Prune never offers")
             }
         }
         .formStyle(.grouped)
@@ -243,7 +243,7 @@ private struct AccessSettings: View {
                     case .unknown: Label("Unknown", systemImage: "questionmark.circle").foregroundStyle(.secondary)
                     }
                 }
-                Text("Without it, the Trash and some app caches can't be measured. Major Tom never needs admin rights; anything that does is shown as a command for you to run.")
+                Text("Without it, the Trash and some app caches can't be measured. Prune never needs admin rights; anything that does is shown as a command for you to run.")
                     .foregroundStyle(.secondary)
                 HStack {
                     Button("Open Privacy & Security…") { NSWorkspace.shared.open(FullDiskAccess.settingsURL) }
@@ -314,7 +314,7 @@ private struct AlertsSettings: View {
 
             Section {
                 Toggle(isOn: Binding(get: { watch.loginItemStatus.isOn }, set: { watch.setLaunchAtLogin($0) })) {
-                    Text("Open Major Tom at login")
+                    Text("Open Prune at login")
                     Text("Keeps the menu bar item and the low-space check running.")
                 }
                 .disabled(watch.loginItemStatus == .unavailable)
@@ -360,7 +360,7 @@ private struct AlertsSettings: View {
         switch watch.notificationAuthorization {
         case .denied:
             HStack {
-                Label("Notifications for Major Tom are off in System Settings.", systemImage: "bell.slash")
+                Label("Notifications for Prune are off in System Settings.", systemImage: "bell.slash")
                     .foregroundStyle(.orange)
                 Spacer()
                 Button("Open Notifications…") {
@@ -395,15 +395,15 @@ struct NASSettings: View {
                     Button("Check Again") { model.refreshDestination() }
                 }
                 LabeledContent("Status") {
-                    Label(model.destinationCheck.isReady ? "Mounted network share" : "Not available",
+                    Label(model.destinationCheck.isReady ? "Connected" : "Not available",
                           systemImage: model.destinationCheck.isReady ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(model.destinationCheck.isReady ? .green : .orange)
                 }
                 Text(model.destinationCheck.message).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             } header: {
-                Text("NAS destination")
+                Text("Offload destination")
             } footer: {
-                Text("Must be a folder on a mounted network share (SMB, AFP or NFS). A folder on this Mac — like an empty mount point left behind in /Volumes when the share isn't mounted — is refused, so offloading can never fill the internal disk.")
+                Text("Must be a folder on an external drive or a connected network share. A folder on this Mac's own disk — like the empty folder left behind in /Volumes when a drive isn't connected — is refused, so offloading can never fill the internal disk.")
                     .foregroundStyle(.secondary)
             }
             Section {
@@ -413,14 +413,14 @@ struct NASSettings: View {
                         Text(mb >= 1_000_000 ? "Any size" : ByteFormat.string(Int64(mb) * 1_000_000)).tag(mb)
                     }
                 }
-                Text("After copying, every file is read back from the NAS (bypassing this Mac's cache) and compared by SHA-256. Bigger files are compared by size plus their first and last 4 MiB, so verifying a huge video doesn't take as long as copying it twice.")
+                Text("After copying, every file is read back from the external drive (bypassing this Mac's cache) and compared by SHA-256. Bigger files are compared by size plus their first and last 4 MiB, so verifying a huge video doesn't take as long as copying it twice.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } header: {
                 Text("Verification")
             }
-            Section("On the NAS") {
-                Text("<share>/projects|xcode-archives|files/<name>/<date-time>/ holds the copy and manifest.json. Folders (projects, archives, app bundles) are stored as one standard tar file — keeps symlinks, permissions, extended attributes, long and odd names and case intact, and is much faster over SMB than thousands of small files. Single files are copied as they are, with SMB-safe names; their real name and attributes are in the manifest. A folder ending in “.partial” is an incomplete copy.")
+            Section("On the drive") {
+                Text("<folder>/projects|xcode-archives|files/<name>/<date-time>/ holds the copy and manifest.json. Folders (projects, archives, app bundles) are stored as one standard tar file — keeps symlinks, permissions, extended attributes, long and odd names and case intact, and is much faster than thousands of small files. Single files are copied as they are, with names every drive format accepts; their real name and attributes are in the manifest. A folder ending in “.partial” is an incomplete copy.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 LabeledContent("Local manifests") {

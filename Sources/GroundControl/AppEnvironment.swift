@@ -21,6 +21,8 @@ public struct AppEnvironment: Sendable {
     public var offloads: OffloadStore
     /// Test / dev seam (fixture `--fixture-slow-nas`): failure injection and throttling for offloads.
     public var offloadHooks: OffloadEngine.Hooks
+    /// Linked folders (working folder ↔ backup) and the last comparison of each.
+    public var linkStore: LinkStore
 
     public var isFixture: Bool { fixture != nil }
     /// The folder whose volume the disk gauge and reclaimed-space measurement use.
@@ -34,7 +36,9 @@ public struct AppEnvironment: Sendable {
                 remover: any FileRemover = SystemFileRemover(),
                 offloadProbe: any VolumeProbe = LiveVolumeProbe(),
                 offloads: OffloadStore = OffloadStore(),
-                offloadHooks: OffloadEngine.Hooks = .init()) {
+                offloadHooks: OffloadEngine.Hooks = .init(),
+                linkStore: LinkStore = LinkStore()) {
+        self.linkStore = linkStore
         self.remover = remover
         self.offloadProbe = offloadProbe
         self.offloads = offloads
@@ -61,7 +65,8 @@ public struct AppEnvironment: Sendable {
         return AppEnvironment(rules: world.rules, context: world.context, history: world.historyLog,
                               settingsStore: world.settingsStore, fixture: world, git: git,
                               hibernations: world.hibernationLog, remover: world.remover,
-                              offloadProbe: world.nasProbe, offloads: world.offloadStore)
+                              offloadProbe: world.nasProbe, offloads: world.offloadStore,
+                              linkStore: world.linkStore)
     }
 
     /// Fixture mode is on with `MAJORTOM_FIXTURE=1` or the `--fixture` launch argument.

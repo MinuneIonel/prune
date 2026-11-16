@@ -46,7 +46,7 @@ enum XcodeRules {
         tier: .review,
         impact: "You lose the dSYMs and built app for that release: crash reports from it can no longer be symbolicated locally, and you can't re-export or re-upload that exact build.",
         recovery: "None. An archive can only be rebuilt from the same commit, and won't be byte-identical (different UUIDs, so old crash logs still won't symbolicate).",
-        regenCost: "Not recoverable; consider offloading to the NAS instead.",
+        regenCost: "Not recoverable; consider offloading to the external drive instead.",
         method: .trash,
         baseDirectories: { [xcode($0).appending(path: "Archives")] },
         resolve: { ctx in
@@ -225,7 +225,7 @@ enum XcodeRules {
                 title: "Clear simulator dyld caches (admin)",
                 command: ["sudo", "rm", "-rf", coreSimulatorCaches + "/dyld"],
                 tier: .safe,
-                explanation: "Rebuilt automatically the next time a simulator boots (that first boot is slower). Needs admin rights, so Major Tom only shows the command.",
+                explanation: "Rebuilt automatically the next time a simulator boots (that first boot is slower). Needs admin rights, so Prune only shows the command.",
                 runnable: false)]
         }
     )

@@ -144,7 +144,7 @@ func expandTilde(_ path: String, home: URL) -> URL {
 
 public enum AppSupport {
     public static func directory(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
-        home.appending(path: "Library/Application Support/MajorTom", directoryHint: .isDirectory)
+        home.appending(path: "Library/Application Support/Prune", directoryHint: .isDirectory)
     }
 }
 

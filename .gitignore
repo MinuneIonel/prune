@@ -24,3 +24,5 @@ Package.resolved.orig
 /snapshots/
 /tmp/
 # Kept on purpose: design/ (AppIcon.icns + icon-candidates previews), docs/screenshots/ and scripts/
+# Release builds (OUT_DIR=dist scripts/bundle.sh)
+/dist/

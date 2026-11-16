@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Release build -> build/MajorTom.app (ad-hoc signed). Also copies the `majortom` CLI next to it.
+# Release build -> build/Prune.app (ad-hoc signed). Also copies the `majortom` CLI next to it.
 # OUT_DIR=<folder> builds there instead of build/ (e.g. while a copy in build/ is running).
 set -euo pipefail
 
@@ -7,11 +7,11 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 OUT="${OUT_DIR:-$ROOT/build}"
 mkdir -p "$OUT"
-APP="$OUT/MajorTom.app"
+APP="$OUT/Prune.app"
 VERSION="${VERSION:-0.1.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(date +%Y%m%d%H%M)}"
 # Notifications, privacy grants and the login item are keyed to the bundle id; override it if you like.
-BUNDLE_ID="${BUNDLE_ID:-uk.co.tom-jordan.majortom}"
+BUNDLE_ID="${BUNDLE_ID:-studio.prune.app}"
 
 swift build -c release --product MajorTomApp
 swift build -c release --product majortom
@@ -19,7 +19,7 @@ BIN_DIR="$(swift build -c release --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN_DIR/MajorTomApp" "$APP/Contents/MacOS/MajorTom"
+cp "$BIN_DIR/MajorTomApp" "$APP/Contents/MacOS/Prune"
 cp "$BIN_DIR/majortom" "$OUT/majortom"
 
 # App icon: drawn by scripts/make-icon.swift (CoreGraphics) -> iconset -> .icns. design/AppIcon.icns is the
@@ -37,9 +37,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
-  <key>CFBundleName</key><string>Major Tom</string>
-  <key>CFBundleDisplayName</key><string>Major Tom</string>
-  <key>CFBundleExecutable</key><string>MajorTom</string>
+  <key>CFBundleName</key><string>Prune</string>
+  <key>CFBundleDisplayName</key><string>Prune</string>
+  <key>CFBundleExecutable</key><string>Prune</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>

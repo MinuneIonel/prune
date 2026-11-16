@@ -44,7 +44,7 @@ struct ProjectsView: View {
                     ContentUnavailableView {
                         Label("No projects found", systemImage: "folder.badge.questionmark")
                     } description: {
-                        Text("Major Tom looks in \(model.projectRoots.joined(separator: ", ")).")
+                        Text("Prune looks in \(model.projectRoots.joined(separator: ", ")).")
                     } actions: {
                         Button("Add Project Folder…") { FolderPickers.addProjectRoot(model) }
                     }

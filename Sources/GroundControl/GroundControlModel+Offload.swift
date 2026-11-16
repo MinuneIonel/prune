@@ -259,7 +259,7 @@ extension GroundControlModel {
         let engine = offloadEngine
         let r = await Task.detached { engine.removeIncompleteCopies() }.value
         offloadMessage = r.failed.isEmpty
-            ? "Removed \(r.removed) incomplete cop\(r.removed == 1 ? "y" : "ies") from the NAS."
+            ? "Removed \(r.removed) incomplete cop\(r.removed == 1 ? "y" : "ies") from the external drive."
             : "Removed \(r.removed); couldn't remove: \(r.failed.joined(separator: "; "))"
         await refreshDestinationNow()
     }
